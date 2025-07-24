@@ -3,12 +3,16 @@
 #include <TJpg_Decoder.h>
 #include <SpotifyEsp32.h>
 #include <HTTPClient.h>
+#include "secrets.h"
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>     // Core graphics library
 #include <Adafruit_ST7735.h>  // Hardware-specific library for ST7735
 #include <Adafruit_ST7789.h>  // Hardware-specific library for ST7789
 #include <WiFiClientSecure.h>
 #include <SPI.h>
+
+#pragma message("✅ secrets.h was included successfully!")
+
 
 #if defined(ARDUINO_FEATHER_ESP32)  // Feather Huzzah32
 #define TFT_CS 14
@@ -27,10 +31,11 @@
 #define TFT_RST 32  // Or set to -1 and connect to Arduino RESET pin
 #define TFT_DC 25
 #endif
-const char* ssid = "Spectrum-170";
-const char* password = "eatbook2";
 
-const char* apiEndpoint = "https://spotifyproxy.xplanateanimates.workers.dev/get-now-playing";
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASSWORD;
+
+const char* apiEndpoint = WORKER;
 
 
 
@@ -113,6 +118,8 @@ void setup(void) {
 
   Serial.begin(9600);
   spi.begin();
+  Serial.print(WIFI_SSID);
+  Serial.print(WIFI_PASSWORD);
   tft.initR(INITR_GREENTAB);
   tft.fillScreen(ST77XX_BLACK);
   tft.setCursor(0, 0);
