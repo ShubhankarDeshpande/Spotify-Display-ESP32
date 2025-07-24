@@ -3,7 +3,7 @@
 #include <TJpg_Decoder.h>
 #include <SpotifyEsp32.h>
 #include <HTTPClient.h>
-#include "secrets.h"
+#include "secrets.h" //make a secret file to put your ssid, pwd, and cloudflare worker
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>     // Core graphics library
 #include <Adafruit_ST7735.h>  // Hardware-specific library for ST7735
@@ -11,7 +11,6 @@
 #include <WiFiClientSecure.h>
 #include <SPI.h>
 
-#pragma message("✅ secrets.h was included successfully!")
 
 
 #if defined(ARDUINO_FEATHER_ESP32)  // Feather Huzzah32
