@@ -7,10 +7,10 @@
 #include <ArduinoJson.h>
 #include <Adafruit_GFX.h>     // Core graphics library
 #include <Adafruit_ST7735.h>  // Hardware-specific library for ST7735
-#include <Adafruit_ST7789.h>  // Hardware-specific library for ST7789
 #include <WiFiClientSecure.h>
 #include <SPI.h>
-
+#include <FS.h>
+#include "LittleFS.h"
 
 
 #if defined(ARDUINO_FEATHER_ESP32)  // Feather Huzzah32
@@ -50,6 +50,7 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) 
 
 void showAlbumArt(const char* url) {
   Serial.println(String("Downloading ") + url);
+  uint16_t jpgWidth, jpgHeight;
 
   WiFiClientSecure client;
   client.setInsecure();  
@@ -98,10 +99,10 @@ void showAlbumArt(const char* url) {
     delay(1);
   }
 
-  Serial.printf("Downloaded %d bytes\n", bytesRead);
-
   if (bytesRead > 0) {
-    TJpgDec.drawJpg(0, 0, jpgBuffer, bytesRead);
+    TJpgDec.drawJpg(25, 20, jpgBuffer, bytesRead);
+
+    
   } else {
     Serial.println("Failed data reading");
   }
@@ -110,6 +111,41 @@ void showAlbumArt(const char* url) {
   http.end();
 }
 
+String LastSongDraw = "Blank";
+void scrollSong(String text) {
+  static int cursor = 25;                   
+  static unsigned long lastUpdate = 0;       
+  
+  if (text.length() * 6 <= 60) {
+    if(LastSongDraw != text){
+      tft.fillRect(0, 100, 128, 8, ST77XX_BLACK);
+      tft.setCursor(25, 100);
+      tft.print(text);
+      LastSongDraw = text;
+    }
+    return;
+
+  }
+
+  if (millis() - lastUpdate > 50) {
+    lastUpdate = millis();
+
+    tft.fillRect(0, 100, 128, 8, ST77XX_BLACK);
+
+    tft.setCursor(cursor, 100);
+    tft.print(text);
+
+    cursor-= 1;
+
+    int textWidth = text.length() * 6;
+
+    if (cursor < -textWidth) {
+      tft.fillRect(0, 100, 128, 8, ST77XX_BLACK);
+      cursor = 128;  
+    }
+
+  }
+}
 
 
 void setup(void) {
@@ -119,7 +155,7 @@ void setup(void) {
   spi.begin();
   Serial.print(WIFI_SSID);
   Serial.print(WIFI_PASSWORD);
-  tft.initR(INITR_GREENTAB);
+  tft.initR(INITR_BLACKTAB);
   tft.fillScreen(ST77XX_BLACK);
   tft.setCursor(0, 0);
   WiFi.begin(ssid, password);
@@ -133,7 +169,7 @@ void setup(void) {
     Serial.print(".");
 
     dotCount++;
-    if (dotCount > 15) {
+    if (dotCount > 20) {
       tft.println();
       dotCount = 0;
     }
@@ -141,13 +177,24 @@ void setup(void) {
   tft.fillScreen(ST77XX_BLACK);
   tft.setCursor(0, 0);
   tft.print("Connected!");
+  tft.fillScreen(ST77XX_BLACK);
 
-  TJpgDec.setJpgScale(2);
+  TJpgDec.setJpgScale(4);
   TJpgDec.setSwapBytes(false);
   TJpgDec.setCallback(tft_output);
 }
 
+String lastArt = "Blank";
+String line = "Blank";
+String LastSong = "Blank";
+unsigned long lastApiUpdate = 0;
+const unsigned long API_REFRESH_INTERVAL = 5000;
+
 void loop() {
+scrollSong(line); 
+
+if(millis() - lastApiUpdate >= API_REFRESH_INTERVAL){
+  lastApiUpdate = millis();
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     http.begin(apiEndpoint);
@@ -176,19 +223,29 @@ void loop() {
 
         bool isPlaying = doc["is_playing"] | false;
 
-        String line = "Now Playing: " + String(song);
-        String line2 = "By: " + String(artist);
-        Serial.print(line);
-        Serial.println(line2);
-        Serial.print(String(albumArtUrl));
+        line = String(song);
+        String line2 = String(artist);
+        if(line != LastSong){
+          tft.setTextColor(ST77XX_WHITE);
+          Serial.print(line);
+          Serial.println(line2);
+          Serial.print(String(albumArtUrl));
+          tft.fillRect(24, 99, 128, 25, ST77XX_BLACK);
+          tft.setCursor(25, 100);
+          tft.setTextSize(1);
+          tft.setTextColor(0x8410);
+          tft.setCursor(25, 110);
+          tft.print(line2);
+          if(String(albumArtUrl) != lastArt){
+            showAlbumArt(albumArtUrl);
+            lastArt = albumArtUrl;
+          }
+          LastSong = line;
+        }
 
 
-        tft.fillScreen(ST77XX_BLACK);
-        tft.setCursor(0, 0);
-        tft.print(line);
-        tft.setCursor(0, 20);
-        tft.print(line2);
-        showAlbumArt(albumArtUrl);
+
+        
 
       } else {
         Serial.print("JSON parse error: ");
@@ -196,9 +253,9 @@ void loop() {
       }
     } else {
       Serial.printf("HTTP GET failed, error: %d\n", httpCode);
+      delay(1000);
       tft.fillScreen(ST77XX_BLACK);
-      tft.setCursor(0, 0);
-      tft.print("HTTP GET failed");
+ 
     }
 
     http.end();
@@ -206,5 +263,5 @@ void loop() {
     Serial.println("WiFi not connected");
   }
 
-  delay(15000);  
+}
 }
